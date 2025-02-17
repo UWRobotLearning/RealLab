@@ -22,11 +22,11 @@
     <group if="$(eval arg('robot_name') == 'hound_vio')">
         <include file="$(find realsense2_camera)/launch/rs_t265.launch"/>
         <node pkg="real_lab" type="odom_publisher.py" name="odometry_processor" output="screen"/>
-        <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="10 hound_core offroad_apm.launch" name="apm_timed" output="screen" launch-prefix="nice -n -1"/>
+        <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="10 hound_core apm.launch" name="apm_timed" output="screen" launch-prefix="nice -n -1"/>
     </group>
     <group unless="$(eval arg('robot_name') == 'hound_vio')">
         <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="5 hound_core realsense_d455_HOUND.launch" name="camera_timed" output="screen"/>
-        <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="10 hound_core offroad_apm.launch fcu_url:=/dev/ttyACM1:921600" name="apm_timed" 
+        <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="10 hound_core apm.launch fcu_url:=/dev/ttyACM1:921600" name="apm_timed" 
                 output="screen" launch-prefix="nice -n -1"/>
     </group>
 

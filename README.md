@@ -1,5 +1,5 @@
 ## Installation
-1. Use the instructions in the mushr repo to install and build `mushr_base` and all of its dependancies. [https://github.com/prl-mushr/mushr](https://github.com/prl-mushr/mushr)
+1. Use the instructions in the hound repo to install and build `hound_core` and all of its dependancies. [https://github.com/prl-mushr/hound_core](https://github.com/prl-mushr/hound_core)
 2. Clone this repo into the src directory of your catkin workspace.
 3. If you would like to run a policy that uses mocap, clone the odom branch of the mushr mocap repo with `git clone https://github.com/prl-mushr/mushr_mocap.git -b odom`. Then follow the [installation instructions](https://github.com/prl-mushr/mushr_mocap/tree/odom?tab=readme-ov-file#mushr-mocap) in mushr_mocap to get mocap set up.
 4. Run `catkin_make` to build all packages
@@ -10,10 +10,11 @@
 2. Go to `config/policies/<POLICY_TO_RUN>.yaml` and configure the model parameters
 3. Use the following command to launch the policy:
 ```bash
-roslaunch hound_core offroad_irl.launch policy:=<POLICY_TO_RUN> robot_name:=<ROBOT_NAME>
+roslaunch real_lab real_lab.launch policy:=<POLICY_TO_RUN> robot_name:=<ROBOT_NAME>
 ```
-4. Arm the mushr (typically by pressing the right trigger)
-5. To log data run the launch command with the `data:=True` arguement
+4. Arm the hound and put it into autonomous mode by pushing both of the right triggers all the way down.
+5. Move the throttle passed the half way point to enable the policy to start moving the vehicle
+6. To log data run the launch command with the `data:=True` arguement
 
 ## References
 
@@ -28,6 +29,6 @@ Eprint = {arXiv:2502.07380},
 }
 ```
 
-### Mushr
+### Hound
 
-[1] Siddhartha S. Srinivasa, Patrick Lancaster, Johan Michalove, Matt Schmittle, Colin Summers, Matthew Rockett, Rosario Scalise, Joshua R. Smith, Sanjiban Choudhury, Christoforos Mavrogiannis, and Fereshteh Sadeghi.MuSHR: A Low-Cost, Open-Source Robotic Racecar for Education and Research, December 2023.URL http://arxiv.org/abs/1908.08031.arXiv:1908.08031 [cs].
+[1] Sidharth Talia, Matt Schmittle, Alexander Lambert, Alexander Spitzer, Christoforos Mavrogiannis, and Siddhartha S. Srinivasa.Demonstrating HOUND: A Low-cost Research Platform for High-speed Off-road Underactuated Nonholonomic Driving, July 2024.URL http://arxiv.org/abs/2311.11199.arXiv:2311.11199 [cs].
