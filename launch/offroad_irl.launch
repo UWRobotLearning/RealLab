@@ -9,7 +9,7 @@
         <include file="$(find mushr_mocap)/launch/object_publisher.launch">
             <arg name="asset_name" value="$(arg robot_name)" />
         </include>
-        <node pkg="hound_core" type="heightmap_publisher.py" name="heightmap" output="screen"/>
+        <node pkg="real_lab" type="heightmap_publisher.py" name="heightmap" output="screen"/>
     </group>
     <!-- otherwise just pulish car odom -->
     <group unless="$(eval arg('policy') == 'elevation')">
@@ -19,8 +19,20 @@
     </group>
 
     <!-- launching vio if the robot is hound_vio, otherwise launch depth camera-->
-    <include file="$(find hound_core)/launch/realsense_d455_HOUND.launch"/>
-    <include file="$(find mushr_base)/launch/teleop.launch"/>
+    <group if="$(eval arg('robot_name') == 'hound_vio')">
+        <include file="$(find realsense2_camera)/launch/rs_t265.launch"/>
+        <node pkg="real_lab" type="odom_publisher.py" name="odometry_processor" output="screen"/>
+        <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="10 hound_core offroad_apm.launch" name="apm_timed" output="screen" launch-prefix="nice -n -1"/>
+    </group>
+    <group unless="$(eval arg('robot_name') == 'hound_vio')">
+        <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="5 hound_core realsense_d455_HOUND.launch" name="camera_timed" output="screen"/>
+        <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="10 hound_core offroad_apm.launch fcu_url:=/dev/ttyACM1:921600" name="apm_timed" 
+                output="screen" launch-prefix="nice -n -1"/>
+    </group>
+
+    <!-- launching the base hound system -->
+    <node pkg="hound_core" type="HAL_9000.py" name="HAL" output="screen"/>    
+    <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="50 hound_core vesc_driver_node.launch" name="vesc_timed" output="screen"/>
 
     <!-- <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="30 hound_core X4.launch" name="lidar_timed" output="screen"/> -->
 
@@ -32,22 +44,27 @@
     <arg name="low_level_Config" default="$(find hound_core)/config/low_level_Config_real.yaml" />
     <rosparam file="$(arg low_level_Config)" command="load" />
     
+    <node pkg="hound_core" type="hound_ll_control" name="low_level_controller" launch-prefix="nice -n -1"/>
+
+    <node pkg="hound_core" type="osm_router.py" name="router" output="screen"/>
+
     <!-- <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="15 elevation_mapping_cupy elevation_mapping_cupy_no_vis.launch" name="elevation_mapping" output="log"/>
     <include file="$(find ntrip_ros)/launch/ntripclient.launch"/>  -->
 
-    <node pkg="hound_core" type="rl_hl_control.py" name="high_level_controller" output="screen">
+    <node pkg="real_lab" type="rl_hl_control.py" name="high_level_controller" output="screen">
         <param name="policy" value="$(arg policy)" />
         <param name="data_collection" value="$(arg data)" />
     </node>
    
+    <!-- <node pkg="hound_core" type="hound_hl_control.py" name="high_level_controller" output="screen"/> -->
     <group if ="$(arg data)">
-        <node pkg="hound_core" type="data_collector.py" name="data_collector" output="screen"/>
+        <node pkg="real_lab" type="data_collector.py" name="data_collector" output="screen"/>
     </group>
 
     <!-- Group of nodes launched only if visualize is true -->
     <group if="$(arg visualize)">
-        <node pkg="hound_core" type="state_spliter.py" name="state_splitter" output="screen" />
+        <!-- <node pkg="hound_core" type="state_spliter.py" name="state_splitter" output="screen" /> -->
         <!-- <node pkg="hound_core" type="pose_republisher.py" name="pose_republisher" output="screen" /> -->
-        <!-- <node pkg="hound_core" type="action_republisher.py" name="action_republisher" output="screen" /> -->
+        <node pkg="real_lab" type="action_republisher.py" name="action_republisher" output="screen" />
     </group>
 </launch>

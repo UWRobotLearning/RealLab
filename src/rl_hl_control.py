@@ -2,21 +2,23 @@
 import rospy
 import cv2
 import numpy as np
+# from hound_mppi import mppi
 from nav_msgs.msg import Odometry, Path as navPath
 from std_msgs.msg import Float32MultiArray
-from sensor_msgs.msg import Imu, Image, Joy
+from sensor_msgs.msg import Imu, Image
 from geometry_msgs.msg import PoseStamped, Pose, Point, Quaternion
+from mavros_msgs.msg import RCIn
 from utils.rl_policy import RLModel
 from utils.waypoints import Waypoints
 from visualization_msgs.msg import Marker, MarkerArray
 from ackermann_msgs.msg import AckermannDriveStamped
 from tf.transformations import euler_from_quaternion
-
 import os
 from pathlib import Path
 import yaml
 import time
 import torch
+from Bezier import *
 from cv_bridge import CvBridge, CvBridgeError
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from utils.generate_elevation_map import crop_heightmap
@@ -76,7 +78,7 @@ class Hound_RLHL_Control:
                                 })
             self.include_last_action = True
             self.last_action_offset = 9
-            self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap2.npy")
+            self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap.npy")
             self.heightmap_sub = rospy.Subscriber("/heightmap", Float32MultiArray, self.heightmap_callback)
         elif self.obs_type == "goal_based_elevation":
             self.state = np.zeros(690, dtype=np.float32)
@@ -89,7 +91,7 @@ class Hound_RLHL_Control:
                                 })
             self.include_last_action = True
             self.last_action_offset = 12
-            self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap2.npy")
+            self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap.npy")
             self.heightmap_sub = rospy.Subscriber("/heightmap", Float32MultiArray, self.heightmap_callback)
             self.goal = np.array(config_data["goal"], dtype=np.float32)
         elif self.obs_type == 'rgb':
@@ -125,9 +127,9 @@ class Hound_RLHL_Control:
             "/mavros/local_position/odom", Odometry, self.odom_callback
         )
 
-        self.rc_sub = rospy.Subscriber('/car/teleop/joy', Joy, self.rcin_callback)
+        self.rc_sub = rospy.Subscriber('/mavros/rc/in', RCIn, self.rcin_callback)
 
-        self.imu_sub = rospy.Subscriber("/camera/gyro/sample", Imu, self.imu_callback)
+        self.imu_sub = rospy.Subscriber("/mavros/imu/data", Imu, self.imu_callback)
         # self.grid_map_sub = rospy.Subscriber(
         #     "/grid_map_occlusion_inpainting/all_grid_map",
         #     GridMap,
@@ -150,7 +152,7 @@ class Hound_RLHL_Control:
 
         ## set up publishers:
         self.control_pub = rospy.Publisher(
-            "/car/mux/ackermann_cmd_mux/input/navigation", AckermannDriveStamped, queue_size=1
+            "low_level_controller/hound/control", AckermannDriveStamped, queue_size=1
         )
         self.state_pub = rospy.Publisher(
             "hl_controller/state", Float32MultiArray, queue_size=1
@@ -173,11 +175,13 @@ class Hound_RLHL_Control:
 
     def rcin_callback(self, data):
         try:
-            self.start_action = data.buttons[5] == 1
+            self.start_action = data.channels[2] > 1300
         except Exception as e:
             pass
 
     def main_loop(self):
+        ## the pycuda-torch lovechild prefers it if you keep it in a single context rather than invoking
+        # it in a callback which causes it to create new contexts faster than it can delete the old ones leading to rapid memory growth
         rate = rospy.Rate(self.rate)
         while not rospy.is_shutdown():
             if (self.state_init and self.odom_update):
@@ -209,8 +213,8 @@ class Hound_RLHL_Control:
         control_msg = AckermannDriveStamped()
         control_msg.header.stamp = rospy.Time.now()
         control_msg.header.frame_id = "base_link"
-        control_msg.drive.steering_angle = -(ctrl[1] * self.steering_max)
-        control_msg.drive.speed = 0.5 #if (ctrl[0] * self.throttle_to_wheelspeed) > 0 else 0
+        control_msg.drive.steering_angle = ctrl[1] * self.steering_max
+        control_msg.drive.speed = ctrl[0] * self.throttle_to_wheelspeed
         if not self.start_action:
             control_msg.drive.speed = 0
         if self.include_last_action:
@@ -237,8 +241,17 @@ class Hound_RLHL_Control:
         new_pose[1] = odom.pose.pose.position.y
         new_pose[2] = odom.pose.pose.position.z
 
-        new_pose[3] = (rpy[0] + 2*np.pi) % (2*np.pi)
-        new_pose[4] = (rpy[1] + 2*np.pi) % (2*np.pi)
+        #make sure angles are between 0 and 2pi
+        imu_quaternion = (
+            self.imu.orientation.x,
+            self.imu.orientation.y,
+            self.imu.orientation.z,
+            self.imu.orientation.w,
+        )
+        rpy_imu = euler_from_quaternion(imu_quaternion)
+
+        new_pose[3] = (rpy_imu[0] + 2*np.pi) % (2*np.pi)
+        new_pose[4] = (rpy_imu[1] + 2*np.pi) % (2*np.pi)
         new_pose[5] = (rpy[2] + 2*np.pi) % (2*np.pi)
 
         self.pose = new_pose
@@ -246,10 +259,9 @@ class Hound_RLHL_Control:
         self.twists[0] = odom.twist.twist.linear.x
         self.twists[1] = odom.twist.twist.linear.y
         self.twists[2] = odom.twist.twist.linear.z
-        # lazy fix for wierd camera reference frame
-        self.twists[3] = self.imu.angular_velocity.z
-        self.twists[4] = - self.imu.angular_velocity.x
-        self.twists[5] = - self.imu.angular_velocity.y
+        self.twists[3] = self.imu.angular_velocity.x
+        self.twists[4] = self.imu.angular_velocity.y
+        self.twists[5] = self.imu.angular_velocity.z
 
         if self.obs_type == "relative":
             self.obtain_relative_state(odom)
@@ -314,23 +326,17 @@ class Hound_RLHL_Control:
         # remove upper 1/3
         resized_image = resized_image[H//3:, ...]
 
-        norm = np.linalg.norm(resized_image - np.array([255, 255, 255]), ord=1, axis=-1)
-        gray_image = np.zeros_like(resized_image[...])
-        gray_image[norm < 100] = resized_image[norm < 100]
-        gray_image[norm >= 100] = np.random.uniform(0, 30, size=gray_image[norm >= 100].shape)
-
         # convert to grayscale
         gray_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY) / 255.
 
         # make it unit gaussian assuming mean std of 0.5 0.5
+        normalized_image = (gray_image - 0.5) / 0.5
 
-        flattened_image = gray_image.reshape(-1)
+        flattened_image = normalized_image.reshape(-1)
         if self.threshold > 0:
-           flattened_image = flattened_image > self.threshold
+            self.image = flattened_image > self.threshold
         else:
-           flattened_image = self.image = flattened_image
-
-        self.image = (flattened_image - 0.5) / 0.5
+            self.image = flattened_image
 
     def odom_callback(self, odom):
         if self.imu is None:
