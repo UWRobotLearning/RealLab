@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>hound_core</name>
+  <name>real_lab</name>
   <version>0.0.0</version>
-  <description>The hound_core package</description>
+  <description>The real_lab package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
