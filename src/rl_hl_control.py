@@ -68,10 +68,10 @@ class Hound_RLHL_Control:
             self.include_last_action = True
             self.last_action_offset = 12
         elif self.obs_type == "elevation":
-            self.state = np.zeros(687, dtype=np.float32)
+            self.state = np.zeros(972, dtype=np.float32)
             self.model = RLModel(model_path,
                                 type=model_type,
-                                acargs=(687,687,2),
+                                acargs=(972,972,2),
                                 ackwargs={
                                    "actor_hidden_dims": hidden_shape,
                                    "critic_hidden_dims": hidden_shape
@@ -81,10 +81,10 @@ class Hound_RLHL_Control:
             self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap.npy")
             self.heightmap_sub = rospy.Subscriber("/heightmap", Float32MultiArray, self.heightmap_callback)
         elif self.obs_type == "goal_based_elevation":
-            self.state = np.zeros(690, dtype=np.float32)
+            self.state = np.zeros(975, dtype=np.float32)
             self.model = RLModel(model_path,
                                 type=model_type,
-                                acargs=(690,690,2),
+                                acargs=(975,975,2),
                                 ackwargs={
                                    "actor_hidden_dims": hidden_shape,
                                    "critic_hidden_dims": hidden_shape
@@ -296,7 +296,7 @@ class Hound_RLHL_Control:
         self.state[:3] = self.pose[3:6].numpy() #obtain the orientation
         self.state[3:9] = self.twists.numpy()
         #TODO: in the observation term I also have the last action term, how do I include it here?  
-        self.state[11:687] = self.get_local_elevation_map(x, y, yaw, width=26) # this should be an array of shape (N,) where N = size*size, here it will be 400(taking 20 as the size)
+        self.state[11:972] = self.get_local_elevation_map(x, y, yaw, width=31) # this should be an array of shape (N,) where N = size*size, here it will be 400(taking 20 as the size)
 
     def obtain_goal_based_elevation_state(self, odom):
         x=self.pose[0].numpy()
@@ -306,7 +306,7 @@ class Hound_RLHL_Control:
         self.state[3:6] = self.pose[3:6].numpy() #obtain the orientation
         self.state[6:12] = self.twists.numpy()
         #TODO: in the observation term I also have the last action term, how do I include it here?  
-        self.state[14:690] = self.get_local_elevation_map(x, y, yaw, width=26)
+        self.state[14:975] = self.get_local_elevation_map(x, y, yaw, width=31)
 
     def obtain_rgb_state(self, odom):
         image_offset = self.image_shape[0] * self.image_shape[1]
