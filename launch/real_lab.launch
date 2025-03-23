@@ -19,7 +19,7 @@
     </group>
 
     <!-- launching vio if the robot is hound_vio, otherwise launch depth camera-->
-    <include file="$(find real_lab)/launch/realsense_d455_HOUND.launch">
+    <include file="$(find real_lab)/launch/realsense_d455_HOUND.launch"/>
     <include file="$(find mushr_base)/launch/teleop.launch"/>
 
     <!-- <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="30 hound_core X4.launch" name="lidar_timed" output="screen"/> -->

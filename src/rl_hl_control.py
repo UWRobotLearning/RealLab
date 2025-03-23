@@ -122,7 +122,7 @@ class Hound_RLHL_Control:
         print("\n1\n")
         # initialize the odometry and imu subscribers with callbacks
         self.odom_sub = rospy.Subscriber(
-            "/mavros/local_position/odom", Odometry, self.odom_callback
+            "/car/vesc/odom", Odometry, self.odom_callback
         )
 
         self.rc_sub = rospy.Subscriber('/car/teleop/joy', Joy, self.rcin_callback)
