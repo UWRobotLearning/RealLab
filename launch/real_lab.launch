@@ -3,27 +3,37 @@
     <arg name="data" default="false" />
     <arg name="robot_name" default="hound_vio" />
     <arg name="policy" default="drift" />
-
-    <!-- for elevation launch the object publisher to keep track of object poses -->
-    <group if="$(eval arg('policy') == 'elevation')">
-        <include file="$(find mushr_mocap)/launch/object_publisher.launch">
-            <arg name="asset_name" value="$(arg robot_name)" />
-        </include>
-        <node pkg="real_lab" type="heightmap_publisher.py" name="heightmap" output="screen"/>
+    <arg name="mocap" default="false" />
+    <arg name="odom_topic" value="$(eval '/mavros/local_position/odom' if '$(arg mocap)'=='true' else '/car/vesc/odom')"/>
+    
+    <group if="$(arg mocap)">
+        <!-- for elevation launch the object publisher to keep track of object poses -->
+        <group if="$(eval arg('policy') == 'elevation')">
+            <include file="$(find mushr_mocap)/launch/object_publisher.launch">
+                <arg name="asset_name" value="$(arg robot_name)" />
+            </include>
+            <node pkg="real_lab" type="heightmap_publisher.py" name="heightmap" output="screen"/>
+        </group>
+        <!-- otherwise just pulish car odom -->
+        <group unless="$(eval arg('policy') == 'elevation')">
+            <include file="$(find mushr_mocap)/launch/car_odom_publisher.launch">
+                <arg name="asset_name" value="$(arg robot_name)" />
+            </include>
+        </group>
     </group>
-    <!-- otherwise just pulish car odom -->
-    <group unless="$(eval arg('policy') == 'elevation')">
-        <include file="$(find mushr_mocap)/launch/car_odom_publisher.launch">
-            <arg name="asset_name" value="$(arg robot_name)" />
-        </include>
+    <group unless="$(arg mocap)">
+        <group if="$(eval arg('policy') == 'elevation')">
+            <node pkg="real_lab" type="laser_map_publisher.py" name="heightmap" output="screen"/>
+            <include file="$(find ydlidar)/launch/lidar.launch" >
+                <arg name="car_name" value="car" />
+                <arg name="tf_prefix" default="car"/>
+            </include> 
+        </group>
     </group>
+        
 
-    <!-- launching vio if the robot is hound_vio, otherwise launch depth camera-->
     <include file="$(find real_lab)/launch/realsense_d455_HOUND.launch"/>
     <include file="$(find mushr_base)/launch/teleop.launch"/>
-
-    <!-- <node pkg="timed_roslaunch" type="timed_roslaunch.sh" args="30 hound_core X4.launch" name="lidar_timed" output="screen"/> -->
-
 
     <arg name="low_level_Config" default="$(find real_lab)/config/low_level_Config_real.yaml" />
     <rosparam file="$(arg low_level_Config)" command="load" />
@@ -34,6 +44,8 @@
     <node pkg="real_lab" type="rl_hl_control.py" name="high_level_controller" output="screen">
         <param name="policy" value="$(arg policy)" />
         <param name="data_collection" value="$(arg data)" />
+        <param name="odom" value="$(arg odom_topic)"/>
+        <param name="use_mocap" value="$(arg mocap)"/>
     </node>
    
     <group if ="$(arg data)">

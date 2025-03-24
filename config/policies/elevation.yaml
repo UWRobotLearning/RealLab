@@ -1,8 +1,8 @@
 throttle_to_wheelspeed: 1.0 # maximum desired car speed
-model_path: "elevation_model.pt" # location of your model wieghts
+model_path: "elev_model_obs.pt" # location of your model wieghts
 model_type: "mlp" # mlp or cnn
 steering_max: 0.488 # max steering angle in radians
 rate: 20 # control frequency of the policy
 obs_type: "goal_based_elevation"  # the type of observation that must be passed in to the model
 hidden_shape: [128, 128] # shape of hidden layers
-goal: [-2.0, -2.0, 0.0] # the goal destination of the elevation policy
+goal: [4.0, 2.0, 0.0] # the goal destination of the elevation policy

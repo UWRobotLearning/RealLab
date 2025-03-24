@@ -23,7 +23,7 @@ from utils.generate_elevation_map import crop_heightmap
 
 
 class Hound_RLHL_Control:
-    def __init__(self, policy, data_collection):
+    def __init__(self, policy, data_collection, odom_topic, use_mocap=False):
         with open(f"/root/catkin_ws/src/hound_core/config/policies/{policy}.yaml") as f:
             config_data = yaml.safe_load(f)
 
@@ -43,6 +43,7 @@ class Hound_RLHL_Control:
         self.twists = torch.zeros(6)
         self.start_action = False
         self.pad_latch = True
+        self.use_mocap = use_mocap
 
         if self.obs_type == "relative":
             self.state = np.zeros(12, dtype=np.float32)
@@ -76,8 +77,12 @@ class Hound_RLHL_Control:
                                 })
             self.include_last_action = True
             self.last_action_offset = 9
-            self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap2.npy")
-            self.heightmap_sub = rospy.Subscriber("/heightmap", Float32MultiArray, self.heightmap_callback)
+            if use_mocap:
+                self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap2.npy")
+                self.heightmap_sub = rospy.Subscriber("/heightmap", Float32MultiArray, self.heightmap_callback)
+            else:
+                self.local_heightmap = np.zeros((31,31))
+                self.local_heightmap_sub = rospy.Subscriber("/obstacles/map", Float32MultiArray, self.local_heightmap_callback)
         elif self.obs_type == "goal_based_elevation":
             self.state = np.zeros(975, dtype=np.float32)
             self.model = RLModel(model_path,
@@ -89,8 +94,12 @@ class Hound_RLHL_Control:
                                 })
             self.include_last_action = True
             self.last_action_offset = 12
-            self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap2.npy")
-            self.heightmap_sub = rospy.Subscriber("/heightmap", Float32MultiArray, self.heightmap_callback)
+            if use_mocap:
+                self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap2.npy")
+                self.heightmap_sub = rospy.Subscriber("/heightmap", Float32MultiArray, self.heightmap_callback)
+            else:
+                self.local_heightmap = np.zeros((31,31))
+                self.local_heightmap_sub = rospy.Subscriber("/obstacles/map", Float32MultiArray, self.local_heightmap_callback)
             self.goal = np.array(config_data["goal"], dtype=np.float32)
         elif self.obs_type == 'rgb':
             self.state = np.zeros(40 * 80 + 8, dtype=np.float32)
@@ -122,7 +131,7 @@ class Hound_RLHL_Control:
         print("\n1\n")
         # initialize the odometry and imu subscribers with callbacks
         self.odom_sub = rospy.Subscriber(
-            "/car/vesc/odom", Odometry, self.odom_callback
+            odom_topic, Odometry, self.odom_callback
         )
 
         self.rc_sub = rospy.Subscriber('/car/teleop/joy', Joy, self.rcin_callback)
@@ -273,8 +282,11 @@ class Hound_RLHL_Control:
         self.state[6:12] = self.twists.numpy()
 
     def get_local_elevation_map(self, x, y, yaw, width=20):
-        elevation_map = crop_heightmap(self.heightmap, x, y, yaw, width=width)
-        return elevation_map.flatten()
+        if self.use_mocap:
+            elevation_map = crop_heightmap(self.heightmap, x, y, yaw, width=width)
+            return elevation_map.flatten()
+        else:
+            return self.local_heightmap.flatten()
     
     def obtain_elevation_state(self, odom):
         #Obtain state for elevation policy
@@ -346,6 +358,9 @@ class Hound_RLHL_Control:
     def heightmap_callback(self, msg):
         self.heightmap = np.array(msg.data).reshape(self.heightmap.shape)
 
+    def local_heightmap_callback(self, msg):
+        self.local_heightmap = np.array(msg.data).reshape(self.local_heightmap.shape)
+
     def pos_angle(self, pos):
         waypoints = Waypoints().waypoints
         waypoints = waypoints.to(pos.device)
@@ -362,5 +377,7 @@ if __name__ == "__main__":
     rospy.init_node("hl_controller")
     policy = rospy.get_param("~policy")
     data_collection = rospy.get_param("~data_collection")
-    planner = Hound_RLHL_Control(policy, data_collection)
+    odom_topic = rospy.get_param("~odom")
+    use_mocap = rospy.get_param("~use_mocap")
+    planner = Hound_RLHL_Control(policy, data_collection, odom_topic, use_mocap)
     rospy.spin()
