@@ -5,7 +5,7 @@ import numpy
 
 class RLModel:
     def __init__(self, name, type="mlp", acargs=(12,12,2), ackwargs = {'actor_hidden_dims': [128,128], 'critic_hidden_dims': [128,128]}):
-        path = f"/root/catkin_ws/src/hound_core/src/models/{name}"
+        path = f"/root/catkin_ws/src/RealLab/src/models/{name}"
         loaded_dict = torch.load(path, map_location=torch.device('cpu'))
         if type == "cnn":
             self.Model = CNNActorCritic(*acargs, **ackwargs)
@@ -21,7 +21,7 @@ class RLModel:
     def inference(self, state):
         state = torch.Tensor(state).unsqueeze(0).to(self.device)
         with torch.no_grad():
-            actions = self.Model.act_inference(state).squeeze(0).numpy().astype(numpy.float32)
+            actions = self.Model.act_inference(state).squeeze(0).cpu().numpy().astype(numpy.float32)
             clipped_actions = numpy.clip(actions, -1, 1)
             return clipped_actions
         

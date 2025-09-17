@@ -18,7 +18,6 @@ from pathlib import Path
 import yaml
 import time
 import torch
-from Bezier import *
 from cv_bridge import CvBridge, CvBridgeError
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from utils.generate_elevation_map import crop_heightmap
@@ -26,7 +25,7 @@ from utils.generate_elevation_map import crop_heightmap
 
 class Hound_RLHL_Control:
     def __init__(self, policy, data_collection):
-        with open(f"/root/catkin_ws/src/hound_core/config/policies/{policy}.yaml") as f:
+        with open(f"/root/catkin_ws/src/RealLab/config/policies/{policy}.yaml") as f:
             config_data = yaml.safe_load(f)
 
         self.throttle_to_wheelspeed = config_data["throttle_to_wheelspeed"]
@@ -78,7 +77,7 @@ class Hound_RLHL_Control:
                                 })
             self.include_last_action = True
             self.last_action_offset = 9
-            self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap.npy")
+            self.heightmap = np.load("/root/catkin_ws/src/RealLab/config/elevation/heightmap.npy")
             self.heightmap_sub = rospy.Subscriber("/heightmap", Float32MultiArray, self.heightmap_callback)
         elif self.obs_type == "goal_based_elevation":
             self.state = np.zeros(975, dtype=np.float32)
@@ -91,7 +90,7 @@ class Hound_RLHL_Control:
                                 })
             self.include_last_action = True
             self.last_action_offset = 12
-            self.heightmap = np.load("/root/catkin_ws/src/hound_core/config/elevation/heightmap.npy")
+            self.heightmap = np.load("/root/catkin_ws/src/RealLab/config/elevation/heightmap.npy")
             self.heightmap_sub = rospy.Subscriber("/heightmap", Float32MultiArray, self.heightmap_callback)
             self.goal = np.array(config_data["goal"], dtype=np.float32)
         elif self.obs_type == 'rgb':

@@ -4,4 +4,4 @@ model_type: "mlp" # mlp or cnn
 steering_max: 0.488 # max steering angle in radians
 rate: 50 # control frequency of the policy
 obs_type: "blind" # the type of observation that must be passed in to the model
-hidden_shape: [128, 128] # shape of hidden layers
+hidden_shape: [64, 64] # shape of hidden layers

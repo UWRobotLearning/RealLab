@@ -4,19 +4,20 @@
     <arg name="robot_name" default="hound_vio" />
     <arg name="policy" default="drift" />
 
+    <!-- UNCOMMENT IF USING MOCAP -->
     <!-- for elevation launch the object publisher to keep track of object poses -->
-    <group if="$(eval arg('policy') == 'elevation')">
+    <!-- <group if="$(eval arg('policy') == 'elevation')">
         <include file="$(find mushr_mocap)/launch/object_publisher.launch">
             <arg name="asset_name" value="$(arg robot_name)" />
         </include>
         <node pkg="real_lab" type="heightmap_publisher.py" name="heightmap" output="screen"/>
-    </group>
+    </group> -->
     <!-- otherwise just pulish car odom -->
-    <group unless="$(eval arg('policy') == 'elevation')">
+    <!-- <group unless="$(eval arg('policy') == 'elevation')">
         <include file="$(find mushr_mocap)/launch/car_odom_publisher.launch">
             <arg name="asset_name" value="$(arg robot_name)" />
         </include>
-    </group>
+    </group> -->
 
     <!-- launching vio if the robot is hound_vio, otherwise launch depth camera-->
     <group if="$(eval arg('robot_name') == 'hound_vio')">
